@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Expense Tracker</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>💰 Expense Tracker</h1>
+
+    <!-- ADD EXPENSE -->
+
+    <div class="card">
+
+        <h2>Add Expense</h2>
+
+        <form action="/add" method="POST">
+
+            <input
+                type="text"
+                name="description"
+                placeholder="Description"
+                required
+            >
+
+            <input
+                type="number"
+                name="amount"
+                placeholder="Amount (€)"
+                step="0.01"
+                min="0.01"
+                required
+            >
+
+            <input
+                type="text"
+                name="category"
+                placeholder="Category"
+                required
+            >
+
+            <input
+                type="date"
+                name="date"
+                required
+            >
+
+            <button type="submit">
+                Add Expense
+            </button>
+
+        </form>
+
+    </div>
+
+
+    <!-- STATISTICS -->
+
+    <div class="card">
+
+        <h2>Statistics</h2>
+
+        <p>
+            <strong>Total spent:</strong>
+            €{{ "%.2f"|format(total) }}
+        </p>
+
+        <p>
+            <strong>Average expense:</strong>
+            €{{ "%.2f"|format(average) }}
+        </p>
+
+    </div>
+
+
+    <!-- SEARCH -->
+
+    <div class="card">
+
+        <h2>Search by Category</h2>
+
+        <form action="/search" method="GET">
+
+            <input
+                type="text"
+                name="category"
+                placeholder="Example: Food"
+                required
+            >
+
+            <button type="submit">
+                Search
+            </button>
+
+        </form>
+
+    </div>
+
+
+    <!-- EXPENSES -->
+
+    <div class="card">
+
+        <h2>Your Expenses</h2>
+
+        {% if expenses %}
+
+        <table>
+
+            <tr>
+                <th>ID</th>
+                <th>Description</th>
+                <th>Amount</th>
+                <th>Category</th>
+                <th>Date</th>
+                <th>Action</th>
+            </tr>
+
+            {% for expense in expenses %}
+
+            <tr>
+
+                <td>{{ expense.id }}</td>
+
+                <td>
+                    {{ expense.description }}
+                </td>
+
+                <td>
+                    €{{ "%.2f"|format(expense.amount) }}
+                </td>
+
+                <td>
+                    {{ expense.category }}
+                </td>
+
+                <td>
+                    {{ expense.date }}
+                </td>
+
+                <td>
+                    <a
+                        href="/delete/{{ expense.id }}"
+                        class="delete"
+                    >
+                        Delete
+                    </a>
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </table>
+
+        {% else %}
+
+        <p>No expenses found.</p>
+
+        {% endif %}
+
+    </div>
+
+
+    <!-- CATEGORY STATISTICS -->
+
+    {% if categories %}
+
+    <div class="card">
+
+        <h2>Spending by Category</h2>
+
+        {% for category, amount in categories.items() %}
+
+        <p>
+            <strong>{{ category }}:</strong>
+            €{{ "%.2f"|format(amount) }}
+        </p>
+
+        {% endfor %}
+
+    </div>
+
+    {% endif %}
+
+</div>
+
+</body>
+</html>
