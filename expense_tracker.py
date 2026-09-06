@@ -1,5 +1,8 @@
+from flask import Flask, render_template, request, redirect, url_for
 import json
 from datetime import datetime
+
+app = Flask(__name__)
 
 FILE_NAME = "expenses.json"
 
@@ -19,34 +22,54 @@ def save_expenses(expenses):
         json.dump(expenses, file, indent=4)
 
 
+# ---------- HOME PAGE ----------
+
+@app.route("/")
+def index():
+    expenses = load_expenses()
+
+    total = sum(expense["amount"] for expense in expenses)
+
+    if expenses:
+        average = total / len(expenses)
+    else:
+        average = 0
+
+    categories = {}
+
+    for expense in expenses:
+        category = expense["category"]
+
+        if category not in categories:
+            categories[category] = 0
+
+        categories[category] += expense["amount"]
+
+    return render_template(
+        "index.html",
+        expenses=expenses,
+        total=total,
+        average=average,
+        categories=categories
+    )
+
+
 # ---------- ADD EXPENSE ----------
 
-def add_expense(expenses):
-    description = input("Description: ")
+@app.route("/add", methods=["POST"])
+def add_expense():
+    description = request.form["description"]
+    amount = float(request.form["amount"])
+    category = request.form["category"]
+    date = request.form["date"]
 
-    while True:
-        try:
-            amount = float(input("Amount: €"))
+    # Check date
+    try:
+        datetime.strptime(date, "%Y-%m-%d")
+    except ValueError:
+        return "Invalid date. Please use YYYY-MM-DD."
 
-            if amount <= 0:
-                print("Amount must be greater than 0.")
-                continue
-
-            break
-
-        except ValueError:
-            print("Please enter a valid number.")
-
-    category = input("Category: ")
-
-    while True:
-        date = input("Date (YYYY-MM-DD): ")
-
-        try:
-            datetime.strptime(date, "%Y-%m-%d")
-            break
-        except ValueError:
-            print("Invalid date. Use YYYY-MM-DD.")
+    expenses = load_expenses()
 
     expense = {
         "id": len(expenses) + 1,
@@ -59,156 +82,51 @@ def add_expense(expenses):
     expenses.append(expense)
     save_expenses(expenses)
 
-    print("\nExpense added successfully!")
+    return redirect(url_for("index"))
 
 
-# ---------- VIEW EXPENSES ----------
+# ---------- DELETE EXPENSE ----------
 
-def view_expenses(expenses):
-    if not expenses:
-        print("\nNo expenses found.")
-        return
+@app.route("/delete/<int:expense_id>")
+def delete_expense(expense_id):
+    expenses = load_expenses()
 
-    print("\n" + "=" * 70)
-    print(f"{'ID':<5}{'Description':<20}{'Amount':<12}{'Category':<18}{'Date'}")
-    print("-" * 70)
+    expenses = [
+        expense for expense in expenses
+        if expense["id"] != expense_id
+    ]
 
-    for expense in expenses:
-        print(
-            f"{expense['id']:<5}"
-            f"{expense['description']:<20}"
-            f"€{expense['amount']:<11.2f}"
-            f"{expense['category']:<18}"
-            f"{expense['date']}"
-        )
+    save_expenses(expenses)
 
-    print("=" * 70)
+    return redirect(url_for("index"))
 
 
 # ---------- SEARCH ----------
 
-def search_expenses(expenses):
-    category = input("Enter category to search: ").lower()
+@app.route("/search")
+def search():
+    category = request.args.get("category", "").lower()
 
-    results = []
-
-    for expense in expenses:
-        if expense["category"].lower() == category:
-            results.append(expense)
-
-    if not results:
-        print("\nNo expenses found for that category.")
-        return
-
-    print(f"\nExpenses in category: {category}")
-
-    for expense in results:
-        print(
-            f"{expense['description']} - "
-            f"€{expense['amount']:.2f} - "
-            f"{expense['date']}"
-        )
-
-
-# ---------- STATISTICS ----------
-
-def show_statistics(expenses):
-    if not expenses:
-        print("\nNo expenses available.")
-        return
-
-    total = sum(expense["amount"] for expense in expenses)
-    average = total / len(expenses)
-
-    categories = {}
-
-    for expense in expenses:
-        category = expense["category"]
-
-        if category not in categories:
-            categories[category] = 0
-
-        categories[category] += expense["amount"]
-
-    print("\n===== STATISTICS =====")
-
-    print(f"\nTotal spent: €{total:.2f}")
-    print(f"Average expense: €{average:.2f}")
-
-    print("\nSpending by category:")
-
-    for category, amount in categories.items():
-        print(f"{category}: €{amount:.2f}")
-
-
-# ---------- DELETE ----------
-
-def delete_expense(expenses):
-    if not expenses:
-        print("\nNo expenses to delete.")
-        return
-
-    try:
-        expense_id = int(input("Enter expense ID to delete: "))
-    except ValueError:
-        print("Please enter a valid ID.")
-        return
-
-    for expense in expenses:
-        if expense["id"] == expense_id:
-            expenses.remove(expense)
-            save_expenses(expenses)
-
-            print("\nExpense deleted!")
-            return
-
-    print("\nExpense ID not found.")
-
-
-# ---------- MENU ----------
-
-def main():
     expenses = load_expenses()
 
-    while True:
-        print("\n")
-        print("=" * 30)
-        print("     EXPENSE TRACKER")
-        print("=" * 30)
+    results = [
+        expense for expense in expenses
+        if expense["category"].lower() == category
+    ]
 
-        print("1. Add expense")
-        print("2. View expenses")
-        print("3. Search expenses")
-        print("4. Show statistics")
-        print("5. Delete expense")
-        print("6. Exit")
-
-        choice = input("\nChoose an option: ")
-
-        if choice == "1":
-            add_expense(expenses)
-
-        elif choice == "2":
-            view_expenses(expenses)
-
-        elif choice == "3":
-            search_expenses(expenses)
-
-        elif choice == "4":
-            show_statistics(expenses)
-
-        elif choice == "5":
-            delete_expense(expenses)
-
-        elif choice == "6":
-            print("\nGoodbye!")
-            break
-
-        else:
-            print("\nInvalid option. Please choose 1-6.")
+    return render_template(
+        "index.html",
+        expenses=results,
+        total=sum(e["amount"] for e in results),
+        average=(
+            sum(e["amount"] for e in results) / len(results)
+            if results else 0
+        ),
+        categories={}
+    )
 
 
-# ---------- START PROGRAM ----------
+# ---------- START FLASK ----------
 
 if __name__ == "__main__":
-    main()
+    app.run(debug=True)
